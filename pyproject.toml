@@ -1,0 +1,18 @@
+[project]
+name = "recommandation-engine"
+version = "0.1.0"
+description = "Moteur de recommandation de produits basé sur ratings et analyse de sentiment"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "pandas>=2.2.0",
+    "scikit-learn>=1.4.0",
+    "textblob>=0.18.0",
+    "openpyxl>=3.1.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+]
