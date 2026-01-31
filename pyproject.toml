@@ -12,7 +12,7 @@ dependencies = [
     "openpyxl>=3.1.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
 ]
