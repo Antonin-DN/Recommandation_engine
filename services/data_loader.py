@@ -35,3 +35,5 @@ if __name__ == "__main__":
     df, is_clean = load_and_clean("data/Group6.xlsx")
     print(df.head())
     print(f"Clean : {is_clean}")
+    print(f"Min : {df['Timestamp'].min()}")
+    print(f"Max : {df['Timestamp'].max()}")

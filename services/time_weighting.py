@@ -1,31 +1,37 @@
-"""t_min = date de la review la plus ancienne du dataset
-t_max = date de la review la plus récente du dataset
-t_reference = t_max + 1 jour  # Ton "jour J"
+def apply_time_weight(df, min_weight=0.7, max_weight=1.0):
+    """Pondère le adjusted_rating en fonction de la date de la review"""
 
-poids = 1 - (distance_review / distance_totale)
+    t_min = df["Timestamp"].min()
+    t_max = df["Timestamp"].max()
+    spread = (t_max - t_min).days  # nombre de jours entre la plus ancienne et la plus récente
 
-la valeur de la note est pondéré en fonction de la date.
+    # Distance en jours depuis la review la plus ancienne
+    days_from_min = (df["Timestamp"] - t_min).dt.days
 
-min_weight = 0.7
-max_weight = 1.0
+    # Ratio entre 0 (plus ancienne) et 1 (plus récente)
+    ratio = days_from_min / spread
 
-# Fonction de transformation
-def rescale(x, min_w=0.7, max_w=1.0):
-    return min_w + (max_w - min_w) * x
+    # Poids entre min_weight et max_weight
+    weight = min_weight + (max_weight - min_weight) * ratio
 
-# Exemples
-print("Original → Rescalé")
+    # Applique le poids au adjusted_rating
+    df["weighted_rating"] = df["adjusted_rating"] * weight
 
-Effet 1 : Impact sur les notes d'un MÊME produitSi un produit a des reviews à différentes périodes, les notes récentes pèsent plus lourd
-enfaite je me dit pour l'effet 2 si un produit est evergreen il aura aussi des review recente donc en soi la ponderation n'a pas d'impact si les review reste stable sur le long therme, ce que je voudrais c'est entre 2 produit différent mais proche admettons si un a etait acheter il y a plus longtemps que l'autre à note egale le plus recent passe devant et 2 si le meme produit voit ses notes degradé les notes les plus recente ont plus d'impact (ou inversement) pour corrigé plus vite les recommandations, exemple un fournisseur baisse sa qualité et s'appuie sur sa notoriété pour continuer de vendre
-Système de recommandation avec 3 niveaux d'intelligence temporelle :
-    
-    1. Pondération des reviews individuelles [0.7, 1.0]
-       → Les notes récentes d'un produit comptent plus
-    
-    2. Score de récence par produit (tie-breaker)
-       → Entre 2 produits similaires, favorise le plus récent
-    
-    3. Détection de tendances (pénalités)
-       → Pénalise les produits dont la qualité se dégrade
-    """
+    return df
+
+
+# --- Test ---
+if __name__ == "__main__":
+    from data_loader import load_and_clean
+    from sentiment import analyze_sentiment, convert_polarity_to_rating, compute_adjusted_rating
+
+    df, is_clean = load_and_clean("data/Group6.xlsx")
+    df = analyze_sentiment(df)
+    df = convert_polarity_to_rating(df)
+    df = compute_adjusted_rating(df)
+    df = apply_time_weight(df)
+
+    print(df[["Timestamp", "Rating", "adjusted_rating", "weighted_rating"]].head(10))
+    print()
+    print(f"Min weighted_rating : {df['weighted_rating'].min():.3f}")
+    print(f"Max weighted_rating : {df['weighted_rating'].max():.3f}")
