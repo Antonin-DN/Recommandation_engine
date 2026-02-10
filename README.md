@@ -16,3 +16,18 @@ Résumé dépendances
   │ Item-based        │ Hardcode + 1 helper │ sklearn.cosine_similarity │
   ├───────────────────┼─────────────────────┼───────────────────────────┤
   │ SVD               │ Hardcode            │ numpy.linalg.svd          │
+
+
+  Chose à rajouter dans data loader : 
+  - Moyenne global de tout les avis et nombres d'avis au data frame, prix random 
+
+  API :
+  Une route pour générer un profil user random dans le dataset, on selectionne un puis on récupère son historique de commande
+  Une route pour générer la recommandation basée sur le modèle
+  Les photos a voir en fonction du nombre de produit (count distinct)
+
+Min : 2003-01-11 07:45:02
+Max : 2023-05-15 04:47:27
+Users distincts : 7023
+Produits distincts : 8623
+

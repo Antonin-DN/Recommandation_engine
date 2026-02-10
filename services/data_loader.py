@@ -37,3 +37,5 @@ if __name__ == "__main__":
     print(f"Clean : {is_clean}")
     print(f"Min : {df['Timestamp'].min()}")
     print(f"Max : {df['Timestamp'].max()}")
+    print(f"Users distincts : {df['UserId'].nunique()}")
+    print(f"Produits distincts : {df['ProductId'].nunique()}")
