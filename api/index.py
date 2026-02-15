@@ -49,3 +49,49 @@
 #    - Utilisé par Netflix
 #
 # =============================================================================
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from services.data_loader import load_and_clean
+from api.random_user import get_random_user
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Cache du DataFrame - chargé une seule fois au premier appel
+_df_cache = None
+
+def get_df():
+    """Charge et cache le DataFrame pour éviter de recharger à chaque requête"""
+    global _df_cache
+    if _df_cache is None:
+        _df_cache, _ = load_and_clean("data/Group6.xlsx")
+    return _df_cache
+
+
+# =============================================================================
+# ROUTES API
+# =============================================================================
+
+@app.get("/api/user/random")
+def random_user():
+    """Retourne un user aléatoire avec son historique d'achats"""
+    df = get_df()
+    return get_random_user(df)
+
+
+@app.get("/api/health")
+def health():
+    """Health check"""
+    return {"status": "ok"}
