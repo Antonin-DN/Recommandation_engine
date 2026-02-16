@@ -127,7 +127,7 @@ export default function Home() {
                 >
                   <ShoppingBag className="w-5 h-5" />
                   <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-secondary text-secondary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {user.orders?.length || 0}
+                    {user.orders?.reduce((acc, o) => acc + (o.quantity || 1), 0) || 0}
                   </span>
                 </button>
 
@@ -168,7 +168,7 @@ export default function Home() {
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {user.orders?.length || 0} commandes
+                {user.orders?.reduce((acc, o) => acc + (o.quantity || 1), 0) || 0} articles achetés
               </p>
             </div>
             <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-xs">
@@ -212,7 +212,6 @@ export default function Home() {
         <OrderHistory
           user={user}
           orders={user.orders || []}
-          products={products}
           onClose={() => setShowHistory(false)}
         />
       )}

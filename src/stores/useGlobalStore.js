@@ -77,6 +77,7 @@ const useGlobalStore = create((set, get) => ({
           productName: h.product_name,
           rating: h.Rating,
           date: h.Timestamp?.split('T')[0] || h.Timestamp,
+          quantity: h.quantity || 1,
         }))
       }
 

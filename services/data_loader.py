@@ -30,6 +30,28 @@ def load_and_clean(filepath):
         return df, is_clean
 
 
+def get_products_df(df):
+    """
+    Crée un DataFrame agrégé par produit
+
+    Colonnes:
+    - ProductId (index)
+    - product_name
+    - avg_rating (moyenne des notes)
+    - review_count (nombre de reviews)
+    """
+    products_df = df.groupby("ProductId").agg(
+        product_name=("product_name", "first"),
+        avg_rating=("Rating", "mean"),
+        review_count=("Rating", "count")
+    ).reset_index()
+
+    # Arrondir la moyenne à 1 décimale
+    products_df["avg_rating"] = products_df["avg_rating"].round(1)
+
+    return products_df
+
+
 # --- Code de test (exécuté uniquement en direct) ---
 if __name__ == "__main__":
     df, is_clean = load_and_clean("data/Group6.xlsx")
@@ -39,3 +61,9 @@ if __name__ == "__main__":
     print(f"Max : {df['Timestamp'].max()}")
     print(f"Users distincts : {df['UserId'].nunique()}")
     print(f"Produits distincts : {df['ProductId'].nunique()}")
+
+    # Test produits agrégés
+    print("\n--- Produits agrégés ---")
+    products_df = get_products_df(df)
+    print(products_df.head(10))
+    print(f"Total produits : {len(products_df)}")

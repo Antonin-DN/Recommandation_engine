@@ -17,16 +17,41 @@ def get_random_user(df):
     user_id = random.choice(df["UserId"].unique())
 
     # Récupère l'historique de ce user
-    user_history = df[df["UserId"] == user_id][["ProductId", "product_name", "Rating", "Reviews", "Timestamp"]]
+    user_history = df[df["UserId"] == user_id][["ProductId", "product_name", "Rating", "Reviews", "Timestamp"]].copy()
+
+    # Ajoute une colonne date (sans l'heure) pour grouper
+    user_history["Date"] = user_history["Timestamp"].dt.date
+
+    # Groupe par ProductId + Date pour avoir la quantité
+    grouped = user_history.groupby(["ProductId", "Date"]).agg({
+        "product_name": "first",
+        "Rating": "mean",  # moyenne si plusieurs ratings
+        "Timestamp": "first"
+    }).reset_index()
+
+    # Compte la quantité (nombre de lignes par groupe)
+    quantity = user_history.groupby(["ProductId", "Date"]).size().reset_index(name="quantity")
+    grouped = grouped.merge(quantity, on=["ProductId", "Date"])
 
     # Génère un nom aléatoire
     fake_name = fake.name()
 
+    # Construit l'historique
+    history = []
+    for _, row in grouped.iterrows():
+        history.append({
+            "ProductId": row["ProductId"],
+            "product_name": row["product_name"],
+            "Rating": row["Rating"],
+            "Timestamp": row["Timestamp"],
+            "quantity": int(row["quantity"])
+        })
+
     return {
         "user_id": user_id,
         "name": fake_name,
-        "nb_products": len(user_history),
-        "history": user_history.to_dict(orient="records")
+        "nb_products": len(history),
+        "history": history
     }
 
 
@@ -40,7 +65,6 @@ if __name__ == "__main__":
     print(f"Produits achetés : {user['nb_products']}")
     print(f"\nHistorique :")
     for item in user["history"]:
-        review = item['Reviews'][:50] + "..." if len(item['Reviews']) > 50 else item['Reviews']
         print(f"  - {item['product_name'][:40]}")
-        print(f"    Rating: {item['Rating']} | Commentaire: {review}")
+        print(f"    Rating: {item['Rating']} | Qté: {item['quantity']}")
         print()

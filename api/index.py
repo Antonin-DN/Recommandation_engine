@@ -88,7 +88,21 @@ def get_df():
 def random_user():
     """Retourne un user aléatoire avec son historique d'achats"""
     df = get_df()
-    return get_random_user(df)
+    result = get_random_user(df)
+
+    # Logs
+    print(f"\n=== Random User ===")
+    print(f"User ID: {result['user_id']}")
+    print(f"Name: {result['name']}")
+    print(f"Nb products: {result['nb_products']}")
+    print(f"History ({len(result['history'])} items):")
+    for i, h in enumerate(result['history'][:5]):
+        print(f"  {i+1}. {h['ProductId']} - {h['product_name'][:30]}")
+    if len(result['history']) > 5:
+        print(f"  ... et {len(result['history']) - 5} autres")
+    print("==================\n")
+
+    return result
 
 
 @app.get("/api/health")
