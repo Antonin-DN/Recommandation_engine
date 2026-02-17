@@ -13,6 +13,26 @@ Pour comparer A et B :
 - A : [5, 4, 5, 3]
 - B : [4, 5, 4, 4]
 - On calcule la similarité cosinus sur ces 4 paires
+Score(Produit X) = Σ (similarité(X, produit_acheté) × note_donnée) / Σ similarités
+
+  Exemple
+
+  User a acheté :
+  - Casque Sony → noté 5
+  - Clavier Logitech → noté 2
+
+  Pour prédire le score de la Souris Logitech :
+  ┌──────────────────┬────────────────────────┬─────────────┬─────────────────┐
+  │  Produit acheté  │ Similarité avec Souris │ Note donnée │  Contribution   │
+  ├──────────────────┼────────────────────────┼─────────────┼─────────────────┤
+  │ Casque Sony      │ 0.30                   │ 5           │ 0.30 × 5 = 1.5  │
+  ├──────────────────┼────────────────────────┼─────────────┼─────────────────┤
+  │ Clavier Logitech │ 0.88                   │ 2           │ 0.88 × 2 = 1.76 │
+  └──────────────────┴────────────────────────┴─────────────┴─────────────────┘
+  Score Souris = (1.5 + 1.76) / (0.30 + 0.88) = 3.26 / 1.18 = 2.76
+
+  La souris est très similaire au clavier (0.88), mais le user a mal noté le clavier (2), donc le score final est tiré
+  vers le bas.
 """
 
 import pandas as pd

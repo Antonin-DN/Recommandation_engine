@@ -55,6 +55,54 @@ def get_random_user(df):
     }
 
 
+def get_user_by_id(df, user_id):
+    """Récupère un user spécifique par son ID"""
+
+    fake = Faker()
+
+    # Vérifie que le user existe
+    if user_id not in df["UserId"].values:
+        return None
+
+    # Récupère l'historique de ce user
+    user_history = df[df["UserId"] == user_id][["ProductId", "product_name", "Rating", "Reviews", "Timestamp"]].copy()
+
+    # Ajoute une colonne date (sans l'heure) pour grouper
+    user_history["Date"] = user_history["Timestamp"].dt.date
+
+    # Groupe par ProductId + Date pour avoir la quantité
+    grouped = user_history.groupby(["ProductId", "Date"]).agg({
+        "product_name": "first",
+        "Rating": "mean",
+        "Timestamp": "first"
+    }).reset_index()
+
+    # Compte la quantité
+    quantity = user_history.groupby(["ProductId", "Date"]).size().reset_index(name="quantity")
+    grouped = grouped.merge(quantity, on=["ProductId", "Date"])
+
+    # Génère un nom aléatoire
+    fake_name = fake.name()
+
+    # Construit l'historique
+    history = []
+    for _, row in grouped.iterrows():
+        history.append({
+            "ProductId": row["ProductId"],
+            "product_name": row["product_name"],
+            "Rating": row["Rating"],
+            "Timestamp": row["Timestamp"],
+            "quantity": int(row["quantity"])
+        })
+
+    return {
+        "user_id": user_id,
+        "name": fake_name,
+        "nb_products": len(history),
+        "history": history
+    }
+
+
 # --- Test ---
 if __name__ == "__main__":
     df, is_clean = load_and_clean("data/Group6.xlsx")

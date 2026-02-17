@@ -73,7 +73,7 @@ def predict_ratings(matrix, target_user, similar_users):
     return pd.Series(predictions).sort_values(ascending=False)
 
 
-def recommend(matrix, target_user, k=10, n=5):
+def recommend(matrix, target_user, k=10, n=10):
     """Recommande les N meilleurs produits pour un user"""
 
     similar_users, error = get_similar_users(matrix, target_user, k=k)
@@ -117,6 +117,8 @@ if __name__ == "__main__":
 
     # Prend le user avec le plus de produits notés
     test_user = products_per_user.idxmax()
+    """User testé : AG73BVBKUOH22USSFJA5ZWL7AKXA
+       Produits notés par ce user : 70"""
 
     print(f"\nUser testé : {test_user}")
     print(f"Produits notés par ce user : {products_per_user[test_user]}")

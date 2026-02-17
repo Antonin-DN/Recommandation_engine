@@ -37,8 +37,10 @@ const useGlobalStore = create((set, get) => ({
   user: null,
   isConnected: false,
 
-  // Produits recommandés (populaires par défaut)
+  // Produits recommandés
   recommendedProducts: [],
+  popularProducts: null, // Cache permanent pour les produits populaires
+  recommendationError: null, // Erreur de recommandation (ex: pas assez de commandes)
 
   // Modèle actif
   model: "popular",
@@ -57,7 +59,11 @@ const useGlobalStore = create((set, get) => ({
   setModelDropdown: (show) => set({ modelDropdown: show }),
 
   // --- Actions Model ---
-  setModel: (model) => set({ model }),
+  setModel: (model) => {
+    set({ model })
+    // Fetch les nouvelles recommandations quand on change de modèle
+    get().fetchRecommendations()
+  },
 
   // --- Actions User ---
 
@@ -81,7 +87,8 @@ const useGlobalStore = create((set, get) => ({
         }))
       }
 
-      set({ user, isConnected: true, model: "user-based" })
+      // Reste sur popular, ne change pas de modèle automatiquement
+      set({ user, isConnected: true })
     } catch (err) {
       console.error('Erreur chargement user:', err)
     }
@@ -89,34 +96,92 @@ const useGlobalStore = create((set, get) => ({
 
   // Charge un user par son ID
   loadUserById: async (userId) => {
-    // TODO: remplacer par fetch(`/api/user/${userId}`)
-    const mockUser = {
-      id: userId,
-      name: "User " + userId.substring(0, 4),
-      avatar: userId.substring(0, 2).toUpperCase(),
-      orders: [
-        { productId: 2, date: "2024-03-01", rating: 4.0 },
-        { productId: 4, date: "2024-02-15", rating: 3.5 },
-      ]
+    try {
+      const res = await fetch(`/api/user/${userId}`)
+      const data = await res.json()
+
+      if (data.error) {
+        console.error('User non trouve:', data.error)
+        return false
+      }
+
+      const user = {
+        id: data.user_id,
+        name: data.name,
+        avatar: data.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+        orders: data.history.map(h => ({
+          productId: h.ProductId,
+          productName: h.product_name,
+          rating: h.Rating,
+          date: h.Timestamp?.split('T')[0] || h.Timestamp,
+          quantity: h.quantity || 1,
+        }))
+      }
+
+      set({ user, isConnected: true })
+      return true
+    } catch (err) {
+      console.error('Erreur chargement user:', err)
+      return false
     }
-    set({ user: mockUser, isConnected: true, model: "user-based" })
   },
 
   // Reset user
-  clearUser: () => set({
-    user: null,
-    isConnected: false,
-    model: "popular",
-    showHistory: false,
-  }),
+  clearUser: () => {
+    set({
+      user: null,
+      isConnected: false,
+      model: "popular",
+      showHistory: false,
+    })
+    // Recharge les produits populaires
+    get().fetchRecommendations()
+  },
 
   // --- Actions Recommendations ---
 
   // Charge les recommandations selon le modèle
   fetchRecommendations: async () => {
-    // TODO: const { model, user } = get()
-    // const products = await fetch('/api/recommendations', { model, userId: user?.id })
-    // set({ recommendedProducts: products })
+    const { model, user, popularProducts } = get()
+
+    // Reset l'erreur
+    set({ recommendationError: null })
+
+    // Pour popular : utilise le cache si dispo
+    if (model === "popular" && popularProducts) {
+      set({ recommendedProducts: popularProducts })
+      return
+    }
+
+    try {
+      const params = new URLSearchParams({
+        model: model,
+        n: '10'
+      })
+
+      if (user?.id) {
+        params.append('user_id', user.id)
+      }
+
+      const res = await fetch(`/api/recommendations?${params}`)
+      const data = await res.json()
+
+      if (data.error) {
+        console.error('Erreur API:', data.error)
+        set({ recommendationError: data.error, recommendedProducts: [] })
+        return
+      }
+
+      // Cache les produits populaires
+      if (model === "popular") {
+        set({ recommendedProducts: data.products, popularProducts: data.products })
+      } else {
+        set({ recommendedProducts: data.products })
+      }
+    } catch (err) {
+      console.error('Erreur chargement recommendations:', err)
+      set({ recommendationError: 'Erreur de connexion au serveur' })
+    }
   },
 }))
 

@@ -57,8 +57,15 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.data_loader import load_and_clean
-from api.random_user import get_random_user
+from services.data_loader import load_and_clean, get_products_df
+from services.sentiment import analyze_sentiment, convert_polarity_to_rating, compute_adjusted_rating
+from services.time_weighting import apply_time_weight
+from services.product_service import get_products_details
+from api.random_user import get_random_user, get_user_by_id
+
+# Models
+from models.user_based import build_matrix, recommend as user_based_recommend
+from models.popular import get_popular_products
 
 app = FastAPI()
 
@@ -69,15 +76,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Cache du DataFrame - chargé une seule fois au premier appel
-_df_cache = None
+# Cache - chargé une seule fois au premier appel
+_cache = {
+    "df": None,           # DataFrame brut
+    "df_enriched": None,  # DataFrame avec sentiment
+    "products_df": None,  # DataFrame produits agrégés
+    "matrix": None,       # Matrice user × product
+}
 
 def get_df():
-    """Charge et cache le DataFrame pour éviter de recharger à chaque requête"""
-    global _df_cache
-    if _df_cache is None:
-        _df_cache, _ = load_and_clean("data/Group6.xlsx")
-    return _df_cache
+    """Charge et cache le DataFrame brut"""
+    if _cache["df"] is None:
+        _cache["df"], _ = load_and_clean("data/Group6.xlsx")
+    return _cache["df"]
+
+def get_enriched_df():
+    """Charge et cache le DataFrame enrichi avec sentiment + time weighting"""
+    if _cache["df_enriched"] is None:
+        df = get_df().copy()
+        df = analyze_sentiment(df)
+        df = convert_polarity_to_rating(df)
+        df = compute_adjusted_rating(df)
+        df = apply_time_weight(df)
+        _cache["df_enriched"] = df
+        print("DataFrame enrichi (sentiment + time) chargé")
+    return _cache["df_enriched"]
+
+def get_matrix():
+    """Charge et cache la matrice user × product"""
+    if _cache["matrix"] is None:
+        df_enriched = get_enriched_df()
+        _cache["matrix"] = build_matrix(df_enriched)
+        print(f"Matrice chargée: {_cache['matrix'].shape[0]} users × {_cache['matrix'].shape[1]} products")
+    return _cache["matrix"]
+
+def get_cached_products_df():
+    """Charge et cache le DataFrame produits"""
+    if _cache["products_df"] is None:
+        _cache["products_df"] = get_products_df(get_df())
+        print(f"Products DF chargé: {len(_cache['products_df'])} produits")
+    return _cache["products_df"]
 
 
 # =============================================================================
@@ -105,7 +143,100 @@ def random_user():
     return result
 
 
+@app.get("/api/user/{user_id}")
+def get_user(user_id: str):
+    """Retourne un user spécifique par son ID"""
+    df = get_df()
+    result = get_user_by_id(df, user_id)
+
+    if result is None:
+        return {"error": f"User {user_id} non trouve"}
+
+    # Logs
+    print(f"\n=== User by ID ===")
+    print(f"User ID: {result['user_id']}")
+    print(f"Name: {result['name']}")
+    print(f"Nb products: {result['nb_products']}")
+    print("==================\n")
+
+    return result
+
+
 @app.get("/api/health")
 def health():
     """Health check"""
+    print("Health check OK")
     return {"status": "ok"}
+
+# GET /api/recommendations?model=user-based&user_id=A2SUAM1J3GNN3B&n=10
+@app.get("/api/recommendations")
+def recommendations(model: str = "popular", user_id: str = None, n: int = 10):
+    """
+    Retourne les recommandations selon le modèle choisi
+
+    Args:
+        model: "popular" | "user-based" | "item-based" | "svd"
+        user_id: ID du user (requis sauf pour popular)
+        n: nombre de recommandations
+
+    Returns:
+        Liste de produits avec leurs infos complètes
+    """
+    products_df = get_cached_products_df()
+
+    if model == "popular":
+        # Top N produits basé sur weighted_rating (sentiment + temps)
+        df_enriched = get_enriched_df()
+        result = get_popular_products(df_enriched, n=n)
+
+    elif model == "user-based":
+        if not user_id:
+            return {"error": "user_id requis pour user-based"}
+
+        matrix = get_matrix()
+
+        # Vérifie que le user existe dans la matrice
+        if user_id not in matrix.index:
+            return {"error": f"User {user_id} non trouvé dans le dataset"}
+
+        predictions, error = user_based_recommend(matrix, user_id, k=10, n=n)
+
+        if error:
+            return {"error": error}
+
+        result = {
+            "product_ids": predictions.index.tolist(),
+            "scores": predictions.values.tolist()
+        }
+
+        print(f"User-based recommendations for {user_id}: {len(result['product_ids'])} products")
+
+    elif model == "item-based":
+        return {"error": "Item-based pas encore implémenté", "products": []}
+
+    elif model == "svd":
+        return {"error": "SVD pas encore implémenté", "products": []}
+
+    else:
+        return {"error": f"Modèle inconnu: {model}"}
+
+    # Enrichir avec les infos produits
+    products = get_products_details(result, products_df)
+
+    # Logs
+    print(f"\n=== Recommendations ({model}) ===")
+    print(f"User: {user_id or 'None (popular)'}")
+    print(f"Count: {len(products)}")
+    print("-" * 60)
+    for i, p in enumerate(products):
+        print(f"{i+1}. {p['name'][:40]}")
+        print(f"   ID: {p['id']} | Rating: {p['rating']} | Reviews: {p['reviewCount']}")
+        print(f"   Score: {p['score']} | Price: {p['price']}")
+    print("=" * 60 + "\n")
+
+    return {
+        "model": model,
+        "user_id": user_id,
+        "count": len(products),
+        "products": products
+    }

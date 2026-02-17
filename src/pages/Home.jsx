@@ -1,9 +1,10 @@
+import { useEffect } from "react"
 import { ShoppingBag, User as UserIcon, ChevronDown, Sparkles, TrendingUp, Cpu, Brain, BarChart3, LogOut } from "lucide-react"
 import ProductCard from "../components/ProductCard"
 import OrderHistory from "../components/OrderHistory"
 import LoginDialog from "../components/LoginDialog"
 import useGlobalStore from "../stores/useGlobalStore"
-import { products, MODEL_LABELS } from "../data/mockData"
+import { MODEL_LABELS } from "../data/mockData"
 
 const MODELS = ["popular", "user-based", "item-based", "svd"]
 
@@ -20,6 +21,8 @@ export default function Home() {
     isConnected,
     model,
     recommendedProducts,
+    popularProducts,
+    recommendationError,
     showHistory,
     showLogin,
     modelDropdown,
@@ -28,15 +31,21 @@ export default function Home() {
     setShowLogin,
     setModelDropdown,
     clearUser,
+    fetchRecommendations,
   } = useGlobalStore()
 
-  // Pour l'instant on utilise les mock products directement
+  // Produits à afficher : recommandés ou fallback sur popular si erreur
   const displayProducts = recommendedProducts.length > 0
     ? recommendedProducts
-    : products.sort((a, b) => b.popularity - a.popularity).slice(0, 10)
+    : popularProducts || []
+
+  // Charge les produits populaires au premier rendu
+  useEffect(() => {
+    fetchRecommendations()
+  }, [])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-primary">
         <div className="max-w-[1400px] mx-auto px-4 h-[52px] flex items-center gap-2">
@@ -180,7 +189,7 @@ export default function Home() {
       )}
 
       {/* Product grid */}
-      <main className="max-w-[1400px] mx-auto px-4 py-6">
+      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 w-full">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-base text-foreground">
             {isConnected && model !== "popular"
@@ -193,15 +202,31 @@ export default function Home() {
             </span>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {displayProducts.map((product, i) => (
-            <ProductCard key={product.id} product={product} rank={i + 1} />
-          ))}
-        </div>
+
+        {/* Erreur de recommandation (banner) */}
+        {recommendationError && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-4 flex items-center gap-3">
+            <span className="text-amber-600 text-lg">!</span>
+            <p className="text-sm text-amber-700">{recommendationError}</p>
+          </div>
+        )}
+
+        {/* Grille de produits */}
+        {displayProducts.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {displayProducts.map((product, i) => (
+              <ProductCard key={product.id} product={product} rank={i + 1} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Chargement...
+          </div>
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="bg-primary text-primary-foreground/60 mt-8">
+      <footer className="bg-primary text-primary-foreground/60 mt-auto">
         <div className="max-w-[1400px] mx-auto px-4 py-6 text-center text-xs">
           <p className="text-primary-foreground/50">RecoShop © 2024</p>
         </div>
