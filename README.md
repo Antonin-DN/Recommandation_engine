@@ -58,6 +58,42 @@ Ces limitations impactent notamment la gestion du **cold start problem**.
 
 ---
 
+## Challenges : Sparsité extrême
+
+### Le problème
+
+| Métrique | Valeur |
+|----------|--------|
+| Sparsité de la matrice | **99.98%** |
+| Reviews/utilisateur (moyenne) | 2.1 |
+| Reviews/produit (moyenne) | 2.3 |
+
+Avec si peu d'interactions, les algorithmes de filtrage collaboratif (User-Based, Item-Based) peinent à trouver des similarités significatives.
+
+### Solutions avec des features supplémentaires
+
+#### Features Utilisateurs (non disponibles)
+Avec des données démographiques (âge, sexe, localisation, historique de navigation), on pourrait :
+- **Clustering d'utilisateurs** : regrouper les users par profil similaire
+- **Prédiction par cluster** : un user avec 2 achats hérite des préférences de son cluster
+- Réduction du cold start pour les nouveaux utilisateurs
+
+#### Features Produits (partiellement disponibles)
+Avec des caractéristiques produits (catégorie, marque, description, prix), on pourrait :
+- **Content-Based Filtering** : recommander des produits similaires par leurs attributs
+- **Embeddings de descriptions** : vectoriser les descriptions avec un LLM
+- **Similarité sémantique** : trouver des produits proches même sans historique commun
+
+### Notre approche : Enrichissement via Ollama
+
+Pour pallier le manque de features, nous utilisons **Ollama** (LLM local) pour :
+1. **Générer des descriptions** détaillées à partir des noms de produits
+2. **Créer des embeddings** vectoriels de ces descriptions
+3. **Clustering automatique** des produits par similarité sémantique
+4. **Hybrid Recommender** : CF quand possible, content-based en fallback
+
+---
+
 ## Stack Technique
 
 ### Backend (Python)

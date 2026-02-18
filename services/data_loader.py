@@ -67,3 +67,11 @@ if __name__ == "__main__":
     products_df = get_products_df(df)
     print(products_df.head(10))
     print(f"Total produits : {len(products_df)}")
+
+    # Stats reviews par produit
+    print("\n--- Reviews par produit ---")
+    print(f"Moyenne : {products_df['review_count'].mean():.1f}")
+    print(f"Médiane : {products_df['review_count'].median():.1f}")
+    print(f"Max     : {products_df['review_count'].max()}")
+    print(f"Produits avec 5+ reviews  : {(products_df['review_count'] >= 5).sum()}")
+    print(f"Produits avec 10+ reviews : {(products_df['review_count'] >= 10).sum()}")
