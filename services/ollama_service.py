@@ -11,22 +11,44 @@ import requests
 OLLAMA_URL = "http://localhost:11434"
 
 
-def generate_description(product_name: str, model: str = "mistral") -> str:
+CATEGORIES = [
+    "Electronique",
+    "Maison",
+    "Beaute",
+    "Alimentation",
+    "Vetements",
+    "Sport"
+]
+
+
+def generate_description(product_name: str, reviews: list[str] = None, model: str = "mistral") -> str:
     """
-    Génère une description claire à partir du nom produit marketing
+    Génère une description factuelle à partir du nom produit et des reviews
 
     Args:
         product_name: Nom du produit (souvent SEO/marketing)
+        reviews: Liste des reviews clients (optionnel)
         model: Modèle Ollama à utiliser (mistral, llama2, phi, etc.)
 
     Returns:
-        Description claire en 1-2 phrases
+        Description factuelle en 1-2 phrases
     """
-    prompt = f"""Tu es un assistant qui décrit des produits de manière claire et concise.
-À partir du nom de produit suivant, génère une description simple en 1-2 phrases.
-Ne répète pas le nom complet, extrais juste l'essentiel.
+    reviews_text = ""
+    if reviews and len(reviews) > 0:
+        # Prendre max 3 reviews pour pas surcharger
+        sample_reviews = reviews[:3]
+        reviews_text = f"\n\nAvis clients:\n" + "\n".join(f"- {r}" for r in sample_reviews)
 
-Nom du produit: {product_name}
+    prompt = f"""Décris ce produit en 1-2 phrases factuelles.
+Commence par le nom du produit, puis décris-le.
+Utilise les avis UNIQUEMENT pour identifier:
+- Le type exact de produit
+- Ses caractéristiques techniques
+- Son utilisation principale
+
+N'inclus PAS: opinions, problèmes signalés, avis positifs/négatifs.
+
+Produit: {product_name}{reviews_text}
 
 Description:"""
 
@@ -47,6 +69,51 @@ Description:"""
         return None
     except Exception as e:
         print(f"Erreur génération description: {e}")
+        return None
+
+
+def categorize_product(product_name: str, description: str = None, model: str = "mistral") -> str:
+    """
+    Catégorise un produit parmi les catégories définies
+
+    Args:
+        product_name: Nom du produit
+        description: Description générée (optionnel)
+        model: Modèle Ollama
+
+    Returns:
+        Une catégorie parmi CATEGORIES
+    """
+    categories_str = ", ".join(CATEGORIES)
+    desc_text = f"\nDescription: {description}" if description else ""
+
+    prompt = f"""Catégorise ce produit dans UNE SEULE des catégories suivantes: {categories_str}
+
+Produit: {product_name}{desc_text}
+
+Réponds avec uniquement le nom de la catégorie, rien d'autre.
+Catégorie:"""
+
+    try:
+        res = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=30
+        )
+        res.raise_for_status()
+        response = res.json()["response"].strip()
+
+        # Nettoyer et valider la réponse
+        for cat in CATEGORIES:
+            if cat.lower() in response.lower():
+                return cat
+        return "Autre"
+    except Exception as e:
+        print(f"Erreur catégorisation: {e}")
         return None
 
 
@@ -113,16 +180,30 @@ if __name__ == "__main__":
     print("Ollama OK")
     print(f"Modeles disponibles: {list_models()}\n")
 
-    # Test description
+    # Test description avec reviews
     test_name = "TOZO T6 True Wireless Earbuds Bluetooth 5.3 Headphones Touch Control with Wireless Charging Case IPX8 Waterproof"
-    print(f"Nom produit:\n{test_name}\n")
+    test_reviews = [
+        "Great sound quality for the price, very comfortable",
+        "Battery life is amazing, lasts all day",
+        "Bass could be better but overall good value"
+    ]
 
-    desc = generate_description(test_name)
+    print(f"Nom produit:\n{test_name}\n")
+    print(f"Reviews:\n{test_reviews}\n")
+
+    desc = generate_description(test_name, test_reviews)
     if desc:
         print(f"Description generee:\n{desc}\n")
 
-        # Test embedding
+        # Test catégorisation
+        cat = categorize_product(test_name, desc)
+        print(f"Categorie: {cat}\n")
+
+        # Test embedding (si modele dispo)
         emb = get_embedding(desc)
         if emb:
             print(f"Embedding: {len(emb)} dimensions")
             print(f"Premiers 5 valeurs: {emb[:5]}")
+        else:
+            print("Embedding: modele nomic-embed-text non installe")
+            print("Fais: ollama pull nomic-embed-text")

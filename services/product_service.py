@@ -53,7 +53,9 @@ def get_products_details(recommendations, products_df):
             "reviewCount": int(row["review_count"]),
             "price": _generate_mock_price(),
             "image": _generate_mock_image(product_id),
-            "score": float(scores[i]) if i < len(scores) else None
+            "score": float(scores[i]) if i < len(scores) else None,
+            "category": row.get("category") or None,
+            "description": row.get("description") or None
         }
 
         products.append(product)

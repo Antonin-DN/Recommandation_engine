@@ -13,6 +13,18 @@ SVD avec pondération temporelle (le plus sophistiqué)
   Les photos a voir en fonction du nombre de produit (count distinct)
 
 
+  ---------------------------------------------- GEPHI
+  En regroupant par user_id + date/heure d'achat, vous capturez les produits achetés dans la même session, ce qui est une signal beaucoup plus fort. "Ces deux produits ont été achetés ensemble consciemment, le même jour, par la même personne" est plus puissant que "ces deux produits plaisent aux mêmes personnes en général".
+  Option 1 — La visualisation réseau comme dans Gephi
+Vous construisez exactement le même type de graphe qu'aujourd'hui mais avec vos données. Chaque co-achat dans un panier = une arête. Vous identifiez vos hubs, vos produits isolés, vos ponts entre catégories. En Python avec NetworkX c'est une dizaine de lignes de code.
+
+Option 2 — L'algorithme Apriori ou FP-Growth
+C'est l'approche classique pour l'analyse de paniers. L'idée est de trouver des règles d'association du type "les clients qui achètent A et B achètent aussi C dans 70% des cas". C'est plus directement exploitable pour la recommandation que la visualisation réseau.
+
+Option 3 — Combiner les deux approches
+Vous utilisez la visualisation réseau pour comprendre et nettoyer votre catalogue (identifier les produits trop isolés, les hubs), puis vous alimentez votre modèle item-based existant avec les corrélations issues des paniers en plus des similarités utilisateur. Votre recommandation devient plus précise.
+
+
 ---
 
 ## Projet
@@ -69,6 +81,18 @@ Ces limitations impactent notamment la gestion du **cold start problem**.
 | Reviews/produit (moyenne) | 2.3 |
 
 Avec si peu d'interactions, les algorithmes de filtrage collaboratif (User-Based, Item-Based) peinent à trouver des similarités significatives.
+
+### Tentative : Analyse de paniers (Market Basket)
+
+L'idée était d'exploiter les **co-achats** (produits achetés ensemble le même jour par un utilisateur) pour construire un graphe de relations produits et identifier des "hubs".
+
+| Métrique | Valeur |
+|----------|--------|
+| Total paniers (user+jour) | 13 963 |
+| Paniers avec 2+ produits uniques | 617 (4.4%) |
+| Paire la plus fréquente | **3 occurrences** |
+
+**Verdict** : Non exploitable. La paire de produits la plus achetée ensemble n'apparaît que 3 fois. Pour du network analysis significatif, il faudrait des paires à 50+ occurrences. La sparsité impacte aussi cette approche.
 
 ### Solutions avec des features supplémentaires
 

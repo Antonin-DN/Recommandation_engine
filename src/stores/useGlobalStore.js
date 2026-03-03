@@ -42,6 +42,14 @@ const useGlobalStore = create((set, get) => ({
   popularProducts: null, // Cache permanent pour les produits populaires
   recommendationError: null, // Erreur de recommandation (ex: pas assez de commandes)
 
+  // Recherche sémantique
+  searchResults: null, // null = pas en mode recherche, [] = recherche vide
+  searchQuery: "",
+
+  // Produits similaires (modal)
+  selectedProduct: null,
+  similarProducts: [],
+
   // Modèle actif
   model: "popular",
 
@@ -182,6 +190,44 @@ const useGlobalStore = create((set, get) => ({
       console.error('Erreur chargement recommendations:', err)
       set({ recommendationError: 'Erreur de connexion au serveur' })
     }
+  },
+
+  // --- Actions Search ---
+  setSearchResults: (results, query) => {
+    set({ searchResults: results, searchQuery: query })
+  },
+
+  clearSearch: () => {
+    set({ searchResults: null, searchQuery: "" })
+  },
+
+  // --- Actions Similar Products ---
+  fetchSimilarProducts: async (product) => {
+    set({ selectedProduct: product, similarProducts: [] })
+    try {
+      const res = await fetch(`/api/similar/${product.id}?n=6`)
+      const data = await res.json()
+      if (data.similar) {
+        const products = data.similar.map(p => ({
+          id: p.product_id,
+          name: p.name,
+          description: p.description,
+          category: p.category,
+          rating: p.avg_rating || 4.0,
+          reviewCount: p.review_count || 0,
+          price: Math.round((Math.random() * 200 + 10) * 100) / 100,
+          image: `https://picsum.photos/seed/${p.product_id}/300/300`,
+          similarity: p.similarity
+        }))
+        set({ similarProducts: products })
+      }
+    } catch (err) {
+      console.error("Erreur similar products:", err)
+    }
+  },
+
+  closeSimilarProducts: () => {
+    set({ selectedProduct: null, similarProducts: [] })
   },
 }))
 

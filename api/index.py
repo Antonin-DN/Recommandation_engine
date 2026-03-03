@@ -62,6 +62,7 @@ from services.sentiment import analyze_sentiment, convert_polarity_to_rating, co
 from services.time_weighting import apply_time_weight
 from services.product_service import get_products_details
 from api.random_user import get_random_user, get_user_by_id
+from services.search_service import search_products, get_similar_products
 
 # Models
 from models.user_based import build_matrix, recommend as user_based_recommend
@@ -239,4 +240,62 @@ def recommendations(model: str = "popular", user_id: str = None, n: int = 10):
         "user_id": user_id,
         "count": len(products),
         "products": products
+    }
+
+
+@app.get("/api/search")
+def search(q: str, n: int = 5):
+    """
+    Recherche sémantique (RAG) dans les produits
+
+    Args:
+        q: Texte de recherche
+        n: Nombre de résultats (default 5)
+
+    Returns:
+        Liste de produits avec score de similarité
+    """
+    results = search_products(q, top_n=n)
+
+    print(f"\n=== Search: '{q}' ===")
+    print(f"Resultats: {len(results)}")
+    for r in results:
+        print(f"  [{r['similarity']}] {r['name'][:40]}...")
+    print("=" * 40 + "\n")
+
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results
+    }
+
+
+@app.get("/api/similar/{product_id}")
+def similar(product_id: str, n: int = 5):
+    """
+    Trouve les produits similaires (basé sur embeddings)
+
+    Args:
+        product_id: ID du produit source
+        n: Nombre de résultats (default 5)
+
+    Returns:
+        Liste de produits similaires avec score
+    """
+    results = get_similar_products(product_id, top_n=n)
+
+    # Si erreur
+    if isinstance(results, dict) and "error" in results:
+        return results
+
+    print(f"\n=== Similar to: {product_id} ===")
+    print(f"Resultats: {len(results)}")
+    for r in results:
+        print(f"  [{r['similarity']}] {r['name'][:40]}...")
+    print("=" * 40 + "\n")
+
+    return {
+        "product_id": product_id,
+        "count": len(results),
+        "similar": results
     }

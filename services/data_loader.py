@@ -1,4 +1,8 @@
 import pandas as pd
+import json
+from pathlib import Path
+
+ENRICHED_FILE = Path(__file__).parent.parent / "data" / "products_top500.json"
 
 
 def load_and_clean(filepath):
@@ -35,10 +39,8 @@ def get_products_df(df):
     Crée un DataFrame agrégé par produit
 
     Colonnes:
-    - ProductId (index)
-    - product_name
-    - avg_rating (moyenne des notes)
-    - review_count (nombre de reviews)
+    - ProductId, product_name, avg_rating, review_count
+    - category, description, embedding (depuis JSON, None si absent)
     """
     products_df = df.groupby("ProductId").agg(
         product_name=("product_name", "first"),
@@ -46,8 +48,29 @@ def get_products_df(df):
         review_count=("Rating", "count")
     ).reset_index()
 
-    # Arrondir la moyenne à 1 décimale
     products_df["avg_rating"] = products_df["avg_rating"].round(1)
+
+    # Enrichir avec le JSON (embeddings)
+    if ENRICHED_FILE.exists():
+        with open(ENRICHED_FILE, "r", encoding="utf-8") as f:
+            enriched = json.load(f)
+
+        products_df["category"] = products_df["ProductId"].map(
+            lambda x: enriched.get(x, {}).get("category")
+        ).fillna("")
+        products_df["description"] = products_df["ProductId"].map(
+            lambda x: enriched.get(x, {}).get("description")
+        ).fillna("")
+        products_df["embedding"] = products_df["ProductId"].map(
+            lambda x: enriched.get(x, {}).get("embedding")
+        )
+        # Remplacer NaN par None pour embedding (liste, pas string)
+        products_df["embedding"] = products_df["embedding"].where(products_df["embedding"].notna(), None)
+        print(f"Produits enrichis: {products_df['description'].astype(bool).sum()}/{len(products_df)}")
+    else:
+        products_df["category"] = ""
+        products_df["description"] = ""
+        products_df["embedding"] = None
 
     return products_df
 
@@ -75,3 +98,36 @@ if __name__ == "__main__":
     print(f"Max     : {products_df['review_count'].max()}")
     print(f"Produits avec 5+ reviews  : {(products_df['review_count'] >= 5).sum()}")
     print(f"Produits avec 10+ reviews : {(products_df['review_count'] >= 10).sum()}")
+
+    # Analyse des achats groupés (même user, même jour)
+    print("\n--- Achats groupes (meme user, meme jour) ---")
+    df["date"] = df["Timestamp"].dt.date
+    orders = df.groupby(["UserId", "date"]).agg(
+        products=("ProductId", list)
+    ).reset_index()
+
+    # Garder seulement les produits UNIQUES par panier
+    orders["unique_products"] = orders["products"].apply(lambda x: list(set(x)))
+    orders["nb_unique"] = orders["unique_products"].apply(len)
+
+    multi_product_orders = orders[orders["nb_unique"] > 1]
+    print(f"Total 'paniers' (user+jour)       : {len(orders)}")
+    print(f"Paniers avec 2+ produits UNIQUES  : {len(multi_product_orders)}")
+    print(f"Pourcentage                       : {len(multi_product_orders)/len(orders)*100:.1f}%")
+
+    if len(multi_product_orders) > 0:
+        print(f"\nExemple de paniers multi-produits (uniques):")
+        print(multi_product_orders[["UserId", "date", "nb_unique", "unique_products"]].head(5))
+
+        # Compter les co-achats (paires de produits)
+        from itertools import combinations
+        pair_counts = {}
+        for products in multi_product_orders["unique_products"]:
+            for pair in combinations(sorted(products), 2):
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+        print(f"\nPaires de produits co-achetés : {len(pair_counts)}")
+        top_pairs = sorted(pair_counts.items(), key=lambda x: -x[1])[:10]
+        print("Top 10 paires les plus frequentes:")
+        for pair, count in top_pairs:
+            print(f"  {count}x : {pair[0][:10]}... + {pair[1][:10]}...")

@@ -1,8 +1,10 @@
 import { useEffect } from "react"
-import { ShoppingBag, User as UserIcon, ChevronDown, Sparkles, TrendingUp, Cpu, Brain, BarChart3, LogOut } from "lucide-react"
+import { ShoppingBag, User as UserIcon, ChevronDown, Sparkles, TrendingUp, Cpu, Brain, BarChart3, LogOut, Search } from "lucide-react"
 import ProductCard from "../components/ProductCard"
 import OrderHistory from "../components/OrderHistory"
 import LoginDialog from "../components/LoginDialog"
+import SearchBar from "../components/SearchBar"
+import SimilarProductsModal from "../components/SimilarProductsModal"
 import useGlobalStore from "../stores/useGlobalStore"
 import { MODEL_LABELS } from "../data/mockData"
 
@@ -23,6 +25,8 @@ export default function Home() {
     recommendedProducts,
     popularProducts,
     recommendationError,
+    searchResults,
+    searchQuery,
     showHistory,
     showLogin,
     modelDropdown,
@@ -32,12 +36,33 @@ export default function Home() {
     setModelDropdown,
     clearUser,
     fetchRecommendations,
+    setSearchResults,
+    clearSearch,
+    selectedProduct,
+    similarProducts,
+    fetchSimilarProducts,
+    closeSimilarProducts,
   } = useGlobalStore()
 
-  // Produits à afficher : recommandés ou fallback sur popular si erreur
-  const displayProducts = recommendedProducts.length > 0
-    ? recommendedProducts
-    : popularProducts || []
+  // Mode recherche actif ?
+  const isSearchMode = searchResults !== null
+
+  // Produits à afficher : recherche > recommandés > popular
+  const displayProducts = isSearchMode
+    ? searchResults.map(r => ({
+        id: r.product_id,
+        name: r.name,
+        description: r.description,
+        category: r.category,
+        rating: r.avg_rating || 4.0,
+        reviewCount: r.review_count || 0,
+        price: Math.round((Math.random() * 200 + 10) * 100) / 100,
+        image: `https://picsum.photos/seed/${r.product_id}/300/300`,
+        similarity: r.similarity
+      }))
+    : recommendedProducts.length > 0
+      ? recommendedProducts
+      : popularProducts || []
 
   // Charge les produits populaires au premier rendu
   useEffect(() => {
@@ -58,6 +83,16 @@ export default function Home() {
           </div>
 
           <div className="w-px h-6 bg-primary-foreground/15 mx-2 hidden sm:block" />
+
+          {/* Search Bar */}
+          <div className="hidden lg:block flex-1 max-w-sm">
+            <SearchBar
+              onResults={(results, query) => setSearchResults(results, query)}
+              onClear={clearSearch}
+            />
+          </div>
+
+          <div className="w-px h-6 bg-primary-foreground/15 mx-2 hidden lg:block" />
 
           {/* Model tabs - desktop */}
           <nav className="hidden md:flex items-center gap-0.5">
@@ -192,11 +227,20 @@ export default function Home() {
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 w-full">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-base text-foreground">
-            {isConnected && model !== "popular"
-              ? `Recommandations pour ${user?.name}`
-              : "Produits les plus populaires"}
+            {isSearchMode
+              ? `Resultats pour "${searchQuery}" (${displayProducts.length})`
+              : isConnected && model !== "popular"
+                ? `Recommandations pour ${user?.name}`
+                : "Produits les plus populaires"}
           </h2>
-          {model !== "popular" && !isConnected && (
+          {isSearchMode ? (
+            <button
+              onClick={clearSearch}
+              className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full font-medium hover:bg-secondary/20"
+            >
+              Effacer la recherche
+            </button>
+          ) : model !== "popular" && !isConnected && (
             <span className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full font-medium">
               Connectez-vous pour activer ce modèle
             </span>
@@ -215,7 +259,12 @@ export default function Home() {
         {displayProducts.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {displayProducts.map((product, i) => (
-              <ProductCard key={product.id} product={product} rank={i + 1} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                rank={i + 1}
+                onClick={fetchSimilarProducts}
+              />
             ))}
           </div>
         ) : (
@@ -228,7 +277,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-primary text-primary-foreground/60 mt-auto">
         <div className="max-w-[1400px] mx-auto px-4 py-6 text-center text-xs">
-          <p className="text-primary-foreground/50">RecoShop © 2024</p>
+          <p className="text-primary-foreground/50">RecoShop © 2026 - DATA & AI course</p>
         </div>
       </footer>
 
@@ -241,6 +290,13 @@ export default function Home() {
         />
       )}
       {showLogin && <LoginDialog onClose={() => setShowLogin(false)} />}
+      {selectedProduct && (
+        <SimilarProductsModal
+          product={selectedProduct}
+          similarProducts={similarProducts}
+          onClose={closeSimilarProducts}
+        />
+      )}
     </div>
   )
 }
