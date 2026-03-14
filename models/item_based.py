@@ -74,30 +74,73 @@ def build_item_similarity(matrix):
     return item_similarity
 
 
-def recommend_item_based(item_similarity, df, target_user=None, n=5):
+def recommend_item_based(item_similarity, matrix, target_user, n=10, min_reviews=4, min_score=4.0):
     """
     Recommande les N meilleurs produits pour un user basé sur la similarité items.
 
     Args:
         item_similarity: DataFrame product×product (précalculée)
-        df: DataFrame original avec l'historique des users
-        target_user: UserId (optionnel, si None on génère un user aléatoire)
+        matrix: DataFrame user×product avec les ratings
+        target_user: UserId
         n: nombre de recommandations à retourner
+        min_reviews: nombre minimum de reviews pour qu'un produit soit recommandé
+        min_score: score minimum pour qu'un produit soit recommandé (échelle 1-5)
 
     Returns:
-        tuple: (recommendations, user_info) ou (None, error)
+        tuple: (pd.Series avec scores, error_message)
     """
+    # Step 1 : Récupérer les ratings du user
+    user_ratings = matrix.loc[target_user]
 
-    # Step 1 : Si target_user est None, en sélectionner un aléatoirement
+    # Produits notés par le user (non-NaN)
+    rated_products = user_ratings.dropna()
 
-    # Step 2 : Récupérer l'historique du user (produits notés + notes)
+    # Produits candidats (non notés)
+    unrated_products = user_ratings[user_ratings.isna()].index
 
-    # Step 3 : Pour chaque produit NON acheté, calculer un score prédit
-    #          Score = moyenne pondérée des similarités avec les produits achetés
+    # Filtrer les produits avec assez de reviews
+    review_counts = matrix.notna().sum(axis=0)  # nb de ratings par produit
+    valid_products = review_counts[review_counts >= min_reviews].index
+    unrated_products = unrated_products.intersection(valid_products)
 
-    # Step 4 : Trier par score décroissant et retourner le top N
+    # Step 2 : Calculer le score prédit pour chaque produit non noté
+    predictions = {}
 
-    pass
+    for candidate in unrated_products:
+        if candidate not in item_similarity.index:
+            continue
+
+        # Similarités entre ce candidat et les produits notés par le user
+        similarities = item_similarity.loc[candidate, rated_products.index]
+
+        # Garde seulement les similarités positives
+        positive_sims = similarities[similarities > 0]
+
+        if len(positive_sims) == 0:
+            continue
+
+        # Ratings correspondants
+        ratings = rated_products[positive_sims.index]
+
+        # Score = moyenne pondérée par similarité
+        predicted_score = (positive_sims * ratings).sum() / positive_sims.sum()
+        predictions[candidate] = predicted_score
+
+    if len(predictions) == 0:
+        return None, "Aucune prédiction possible"
+
+    # Step 3 : Filtrer par score minimum et retourner le top N
+    result = pd.Series(predictions).sort_values(ascending=False)
+    result = result[result >= min_score].head(n)
+
+    if len(result) == 0:
+        return None, f"Aucun produit avec score >= {min_score}"
+
+    # Vérifier que les scores sont différenciés
+    if len(result) > 1 and result.std() < 0.01:
+        return None, "Pas assez de données pour différencier les produits"
+
+    return result, None
 
 
 # --- Test ---

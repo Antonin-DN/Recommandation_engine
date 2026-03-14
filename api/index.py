@@ -67,6 +67,8 @@ from services.search_service import search_products, get_similar_products
 # Models
 from models.user_based import build_matrix, recommend as user_based_recommend
 from models.popular import get_popular_products
+from models.item_based import build_item_similarity, recommend_item_based
+from models.svd_model import build_svd_model, recommend_svd
 
 app = FastAPI()
 
@@ -79,10 +81,12 @@ app.add_middleware(
 
 # Cache - chargé une seule fois au premier appel
 _cache = {
-    "df": None,           # DataFrame brut
-    "df_enriched": None,  # DataFrame avec sentiment
-    "products_df": None,  # DataFrame produits agrégés
-    "matrix": None,       # Matrice user × product
+    "df": None,              # DataFrame brut
+    "df_enriched": None,     # DataFrame avec sentiment
+    "products_df": None,     # DataFrame produits agrégés
+    "matrix": None,          # Matrice user × product
+    "item_similarity": None, # Matrice similarité item × item
+    "svd_model": None,       # Modèle SVD (predictions, U, sigma, Vt)
 }
 
 def get_df():
@@ -117,6 +121,24 @@ def get_cached_products_df():
         _cache["products_df"] = get_products_df(get_df())
         print(f"Products DF chargé: {len(_cache['products_df'])} produits")
     return _cache["products_df"]
+
+
+def get_item_similarity():
+    """Charge et cache la matrice de similarité item×item"""
+    if _cache["item_similarity"] is None:
+        matrix = get_matrix()
+        _cache["item_similarity"] = build_item_similarity(matrix)
+        print(f"Item similarity chargée: {_cache['item_similarity'].shape[0]} × {_cache['item_similarity'].shape[1]}")
+    return _cache["item_similarity"]
+
+
+def get_svd_model():
+    """Charge et cache le modèle SVD"""
+    if _cache["svd_model"] is None:
+        matrix = get_matrix()
+        _cache["svd_model"] = build_svd_model(matrix, k=50)
+        print(f"SVD model chargé: k={_cache['svd_model']['k']} facteurs")
+    return _cache["svd_model"]
 
 
 # =============================================================================
@@ -184,23 +206,39 @@ def recommendations(model: str = "popular", user_id: str = None, n: int = 10):
         Liste de produits avec leurs infos complètes
     """
     products_df = get_cached_products_df()
+    MIN_USER_RATINGS = 3  # Minimum d'achats pour utiliser les modèles CF
 
     if model == "popular":
         # Top N produits basé sur weighted_rating (sentiment + temps)
         df_enriched = get_enriched_df()
         result = get_popular_products(df_enriched, n=n)
 
-    elif model == "user-based":
+    elif model in ["user-based", "item-based", "svd"]:
+        # === Validations communes pour tous les modèles CF ===
         if not user_id:
-            return {"error": "user_id requis pour user-based"}
+            return {"error": f"user_id requis pour {model}"}
 
         matrix = get_matrix()
 
-        # Vérifie que le user existe dans la matrice
         if user_id not in matrix.index:
             return {"error": f"User {user_id} non trouvé dans le dataset"}
 
-        predictions, error = user_based_recommend(matrix, user_id, k=10, n=n)
+        # Vérifier que le user a assez d'achats
+        user_ratings = matrix.loc[user_id].dropna()
+        if len(user_ratings) < MIN_USER_RATINGS:
+            return {"error": f"Pas assez d'achats ({len(user_ratings)}/{MIN_USER_RATINGS} minimum) pour {model}"}
+
+        # === Appel du modèle spécifique ===
+        if model == "user-based":
+            predictions, error = user_based_recommend(matrix, user_id, k=10, n=n)
+
+        elif model == "item-based":
+            item_similarity = get_item_similarity()
+            predictions, error = recommend_item_based(item_similarity, matrix, user_id, n=n)
+
+        elif model == "svd":
+            svd_model = get_svd_model()
+            predictions, error = recommend_svd(svd_model, matrix, user_id, n=n)
 
         if error:
             return {"error": error}
@@ -210,13 +248,7 @@ def recommendations(model: str = "popular", user_id: str = None, n: int = 10):
             "scores": predictions.values.tolist()
         }
 
-        print(f"User-based recommendations for {user_id}: {len(result['product_ids'])} products")
-
-    elif model == "item-based":
-        return {"error": "Item-based pas encore implémenté", "products": []}
-
-    elif model == "svd":
-        return {"error": "SVD pas encore implémenté", "products": []}
+        print(f"{model} recommendations for {user_id}: {len(result['product_ids'])} products")
 
     else:
         return {"error": f"Modèle inconnu: {model}"}

@@ -73,7 +73,7 @@ def predict_ratings(matrix, target_user, similar_users):
     return pd.Series(predictions).sort_values(ascending=False)
 
 
-def recommend(matrix, target_user, k=10, n=10):
+def recommend(matrix, target_user, k=10, n=10, min_reviews=4, min_score=4.0):
     """Recommande les N meilleurs produits pour un user"""
 
     similar_users, error = get_similar_users(matrix, target_user, k=k)
@@ -85,7 +85,22 @@ def recommend(matrix, target_user, k=10, n=10):
     if len(predictions) == 0:
         return None, "Aucune prédiction possible"
 
-    return predictions.head(n), None
+    # Filtrer par min_reviews (produits avec assez de ratings)
+    review_counts = matrix.notna().sum(axis=0)
+    valid_products = review_counts[review_counts >= min_reviews].index
+    predictions = predictions[predictions.index.isin(valid_products)]
+
+    # Filtrer par min_score
+    predictions = predictions[predictions >= min_score].head(n)
+
+    if len(predictions) == 0:
+        return None, f"Aucun produit avec score >= {min_score}"
+
+    # Vérifier que les scores sont différenciés
+    if len(predictions) > 1 and predictions.std() < 0.01:
+        return None, "Pas assez de données pour différencier les produits"
+
+    return predictions, None
 
 
 # --- Test ---
