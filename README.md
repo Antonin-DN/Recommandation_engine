@@ -60,6 +60,27 @@ Max : 2023-05-15 04:47:27
 Users distincts : 7023
 Produits distincts : 8623
 
+=== TOP 10 USERS PAR NOMBRE DE COMMANDES ===
+     1. AG73BVBKUOH22USSFJA5ZWL7AKXA : 95 commandes
+     2. AEZP6Z2C5AVQDZAJECQYZWQRNG3Q : 74 commandes
+     3. AEMP3A7IKW37CMWFXNKXWW6HGJHA_1 : 66 commandes
+     4. AFXF3EGQTQDXMRLDWFU7UBFQZB7Q : 64 commandes
+     5. AGZUJTI7A3JFKB4FP5JOH6NVAJIQ_1 : 56 commandes
+     6. AEJU3Z6HDAERETMYI2CXBQVPPDFA : 39 commandes
+     7. AEOK4TQIKGO23SJKZ6PW4FETNNDA_1 : 38 commandes
+     8. AGOLMT3QETKYNESRYKBA6D7XXS7A : 36 commandes
+     9. AH3BXW7KLIS2VAE56UXJS2NS7I5A : 36 commandes
+     10. AEAXAJACFMXIAAH4WOHRMXPSZWFA : 34 commandes
+
+┌─────────┬───────┬──────────┬──────────┐
+  │ Dataset │ Users │ Produits │ Sparsité │
+  ├─────────┼───────┼──────────┼──────────┤
+  │ Complet │ 7023  │ 8623     │ 99.97%   │
+  ├─────────┼───────┼──────────┼──────────┤
+  │ ≥3 cmd  │ 2798  │ 5507     │ 99.91%   │
+  ├─────────┼───────┼──────────┼──────────┤
+  │ ≥5 cmd  │ 893   │ 2855     │ 99.71%   │
+
 ### Limitations
 
 Le dataset étant anonymisé, nous ne disposons pas :

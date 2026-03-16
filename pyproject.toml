@@ -12,6 +12,7 @@ dependencies = [
     "openpyxl>=3.1.0",
     "faker>=40.4.0",
     "requests>=2.32.5",
+    "python-dotenv>=1.2.2",
 ]
 
 [dependency-groups]

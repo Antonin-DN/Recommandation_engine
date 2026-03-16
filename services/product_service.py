@@ -3,7 +3,16 @@ Product Service
 Enrichit les IDs produits avec leurs infos complètes pour le frontend
 """
 
+import os
 import random
+import requests
+from dotenv import load_dotenv
+
+# Charge les variables d'environnement depuis .env
+load_dotenv()
+
+# Clé Unsplash depuis les variables d'environnement
+UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY")
 
 
 def get_products_details(recommendations, products_df):
@@ -52,7 +61,7 @@ def get_products_details(recommendations, products_df):
             "rating": float(row["avg_rating"]),
             "reviewCount": int(row["review_count"]),
             "price": _generate_mock_price(),
-            "image": _generate_mock_image(product_id),
+            "image": _get_product_image(product_id, row),
             "score": float(scores[i]) if i < len(scores) else None,
             "category": row.get("category") or None,
             "description": row.get("description") or None
@@ -69,11 +78,64 @@ def _generate_mock_price():
     return round(random.uniform(9.99, 299.99), 2)
 
 
-def _generate_mock_image(product_id):
+def _fetch_unsplash_image(tags: list, product_id: str = None) -> str | None:
     """
-    Génère une URL d'image placeholder
+    Cherche une image sur Unsplash avec les tags
 
-    TODO: Intégrer Unsplash API avec description Ollama
+    Args:
+        tags: Liste de mots-clés (ex: ["headphones", "audio", "wireless"])
+        product_id: ID du produit (pour le log)
+
+    Returns:
+        URL de l'image ou None si échec
     """
-    # Placeholder pour l'instant
+    if not UNSPLASH_ACCESS_KEY:
+        print(f"[Unsplash] Pas de clé API configurée")
+        return None
+
+    query = " ".join(tags)
+    print(f"[Unsplash] Requête: '{query}' (produit: {product_id})")
+
+    try:
+        res = requests.get(
+            "https://api.unsplash.com/search/photos",
+            params={"query": query, "per_page": 1},
+            headers={"Authorization": f"Client-ID {UNSPLASH_ACCESS_KEY}"},
+            timeout=5
+        )
+        res.raise_for_status()
+        data = res.json()
+
+        if data.get("results"):
+            url = data["results"][0]["urls"]["small"]
+            print(f"[Unsplash] OK: {url[:60]}...")
+            return url
+
+        print(f"[Unsplash] Aucun resultat pour '{query}'")
+        return None
+    except Exception as e:
+        print(f"[Unsplash] Erreur: {e}")
+        return None
+
+
+def _get_product_image(product_id: str, row) -> str:
+    """
+    Retourne l'URL de l'image avec priorité :
+    1. Image pré-enregistrée dans le JSON
+    2. Unsplash avec les tags
+    3. Fallback picsum (random)
+    """
+    # 1. Image pré-enregistrée
+    image = row.get("image")
+    if image and str(image) != "nan":
+        return image
+
+    # 2. Unsplash avec tags
+    tags = row.get("tags")
+    if tags and isinstance(tags, list):
+        unsplash_image = _fetch_unsplash_image(tags, product_id)
+        if unsplash_image:
+            return unsplash_image
+
+    # 3. Fallback picsum
     return f"https://picsum.photos/seed/{product_id[:8]}/300/300"

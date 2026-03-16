@@ -66,11 +66,23 @@ def get_products_df(df):
         )
         # Remplacer NaN par None pour embedding (liste, pas string)
         products_df["embedding"] = products_df["embedding"].where(products_df["embedding"].notna(), None)
+
+        # Tags pour Unsplash (liste de mots-clés)
+        products_df["tags"] = products_df["ProductId"].map(
+            lambda x: enriched.get(x, {}).get("tags")
+        )
+        # Image pré-enregistrée (URL directe)
+        products_df["image"] = products_df["ProductId"].map(
+            lambda x: enriched.get(x, {}).get("image")
+        )
+
         print(f"Produits enrichis: {products_df['description'].astype(bool).sum()}/{len(products_df)}")
     else:
         products_df["category"] = ""
         products_df["description"] = ""
         products_df["embedding"] = None
+        products_df["tags"] = None
+        products_df["image"] = None
 
     return products_df
 

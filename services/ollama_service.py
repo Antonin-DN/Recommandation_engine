@@ -117,6 +117,60 @@ Catégorie:"""
         return None
 
 
+def generate_tags(product_name: str, description: str = None, model: str = "mistral") -> list[str]:
+    """
+    Génère 3 mots-clés pour recherche d'image (Unsplash)
+
+    Args:
+        product_name: Nom du produit
+        description: Description générée (optionnel)
+        model: Modèle Ollama
+
+    Returns:
+        Liste de 3 mots-clés en anglais (pour Unsplash)
+    """
+    desc_text = f"\nDescription: {description}" if description else ""
+
+    prompt = f"""You are helping find a stock photo for an e-commerce product.
+Give exactly 3 GENERIC English words that describe what this product LOOKS like visually.
+
+Rules:
+- Use simple, common nouns (e.g. "bottle", "cream", "brush", "headphones")
+- NO brand names
+- NO words like "image", "photo", "product", "unsplash"
+- NO adjectives, only nouns
+- Think: what would I search on a stock photo site?
+
+Product: {product_name}{desc_text}
+
+Reply with ONLY 3 words separated by commas.
+Example: bottle, skincare, serum
+Keywords:"""
+
+    try:
+        res = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=30
+        )
+        res.raise_for_status()
+        response = res.json()["response"].strip()
+
+        # Parser la réponse (format: "word1, word2, word3")
+        tags = [t.strip().lower() for t in response.split(",")]
+        # Garder seulement les 3 premiers mots valides
+        tags = [t for t in tags if t and len(t) > 1][:3]
+
+        return tags if len(tags) >= 1 else None
+    except Exception as e:
+        print(f"Erreur génération tags: {e}")
+        return None
+
+
 def get_embedding(text: str, model: str = "nomic-embed-text") -> list[float]:
     """
     Génère l'embedding vectoriel d'un texte
