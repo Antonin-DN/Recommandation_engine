@@ -1,32 +1,3 @@
-User-Based Collaborative Filtering (le plus simple)
-Item-Based Collaborative Filtering (symétrique du user-based)
-Matrix Factorization (SVD) (plus puissant)
-SVD avec pondération temporelle (le plus sophistiqué)
-
-
-  Chose à rajouter dans data loader : 
-  - Moyenne global de tout les avis et nombres d'avis au data frame, prix random 
-
-  API :
-  Une route pour générer un profil user random dans le dataset, on selectionne un puis on récupère son historique de commande
-  Une route pour générer la recommandation basée sur le modèle
-  Les photos a voir en fonction du nombre de produit (count distinct)
-
-
-  ---------------------------------------------- GEPHI
-  En regroupant par user_id + date/heure d'achat, vous capturez les produits achetés dans la même session, ce qui est une signal beaucoup plus fort. "Ces deux produits ont été achetés ensemble consciemment, le même jour, par la même personne" est plus puissant que "ces deux produits plaisent aux mêmes personnes en général".
-  Option 1 — La visualisation réseau comme dans Gephi
-Vous construisez exactement le même type de graphe qu'aujourd'hui mais avec vos données. Chaque co-achat dans un panier = une arête. Vous identifiez vos hubs, vos produits isolés, vos ponts entre catégories. En Python avec NetworkX c'est une dizaine de lignes de code.
-
-Option 2 — L'algorithme Apriori ou FP-Growth
-C'est l'approche classique pour l'analyse de paniers. L'idée est de trouver des règles d'association du type "les clients qui achètent A et B achètent aussi C dans 70% des cas". C'est plus directement exploitable pour la recommandation que la visualisation réseau.
-
-Option 3 — Combiner les deux approches
-Vous utilisez la visualisation réseau pour comprendre et nettoyer votre catalogue (identifier les produits trop isolés, les hubs), puis vous alimentez votre modèle item-based existant avec les corrélations issues des paniers en plus des similarités utilisateur. Votre recommandation devient plus précise.
-
-
----
-
 ## Projet
 
 Application de **comparaison de systèmes de recommandation** appliqués à un dataset Amazon. L'objectif est d'évaluer les performances de différentes approches de filtrage collaboratif sur des données réelles d'avis produits.
@@ -54,32 +25,30 @@ Pour rendre l'application plus réaliste et visuelle :
 | Période | 2003 - 2023 |
 | Utilisateurs distincts | 7 023 |
 | Produits distincts | 8 623 |
-| Sparsité : 99.98%
-Min : 2003-01-11 07:45:02
-Max : 2023-05-15 04:47:27
-Users distincts : 7023
-Produits distincts : 8623
+| Sparsité | 99.98% |
 
-=== TOP 10 USERS PAR NOMBRE DE COMMANDES ===
-     1. AG73BVBKUOH22USSFJA5ZWL7AKXA : 95 commandes
-     2. AEZP6Z2C5AVQDZAJECQYZWQRNG3Q : 74 commandes
-     3. AEMP3A7IKW37CMWFXNKXWW6HGJHA_1 : 66 commandes
-     4. AFXF3EGQTQDXMRLDWFU7UBFQZB7Q : 64 commandes
-     5. AGZUJTI7A3JFKB4FP5JOH6NVAJIQ_1 : 56 commandes
-     6. AEJU3Z6HDAERETMYI2CXBQVPPDFA : 39 commandes
-     7. AEOK4TQIKGO23SJKZ6PW4FETNNDA_1 : 38 commandes
-     8. AGOLMT3QETKYNESRYKBA6D7XXS7A : 36 commandes
-     9. AH3BXW7KLIS2VAE56UXJS2NS7I5A : 36 commandes
-     10. AEAXAJACFMXIAAH4WOHRMXPSZWFA : 34 commandes
+### Top 10 utilisateurs par nombre de commandes
 
-┌─────────┬───────┬──────────┬──────────┐
-  │ Dataset │ Users │ Produits │ Sparsité │
-  ├─────────┼───────┼──────────┼──────────┤
-  │ Complet │ 7023  │ 8623     │ 99.97%   │
-  ├─────────┼───────┼──────────┼──────────┤
-  │ ≥3 cmd  │ 2798  │ 5507     │ 99.91%   │
-  ├─────────┼───────┼──────────┼──────────┤
-  │ ≥5 cmd  │ 893   │ 2855     │ 99.71%   │
+| Rang | UserId | Commandes |
+|------|--------|-----------|
+| 1 | AG73BVBKUOH22USSFJA5ZWL7AKXA | 95 |
+| 2 | AEZP6Z2C5AVQDZAJECQYZWQRNG3Q | 74 |
+| 3 | AEMP3A7IKW37CMWFXNKXWW6HGJHA_1 | 66 |
+| 4 | AFXF3EGQTQDXMRLDWFU7UBFQZB7Q | 64 |
+| 5 | AGZUJTI7A3JFKB4FP5JOH6NVAJIQ_1 | 56 |
+| 6 | AEJU3Z6HDAERETMYI2CXBQVPPDFA | 39 |
+| 7 | AEOK4TQIKGO23SJKZ6PW4FETNNDA_1 | 38 |
+| 8 | AGOLMT3QETKYNESRYKBA6D7XXS7A | 36 |
+| 9 | AH3BXW7KLIS2VAE56UXJS2NS7I5A | 36 |
+| 10 | AEAXAJACFMXIAAH4WOHRMXPSZWFA | 34 |
+
+### Sparsité par seuil de commandes
+
+| Dataset | Users | Produits | Sparsité |
+|---------|-------|----------|----------|
+| Complet | 7 023 | 8 623 | 99.97% |
+| ≥3 cmd | 2 798 | 5 507 | 99.91% |
+| ≥5 cmd | 893 | 2 855 | 99.71% |
 
 ### Limitations
 
